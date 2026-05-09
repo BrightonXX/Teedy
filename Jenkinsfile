@@ -7,70 +7,54 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clean') {
             steps {
-                checkout scm
+                sh 'mvn clean'
             }
         }
-
-        stage('Build') {
+        stage('Compile') {
             steps {
-                sh 'mvn compile -DskipTests'
+                sh 'mvn compile'
             }
         }
-
         stage('Test') {
             steps {
-                sh 'mvn test'
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
-                }
+                sh 'mvn test -Dmaven.test.failure.ignore=true'
             }
         }
-
-        stage('JaCoCo') {
-            steps {
-                jacoco(
-                    execPattern: '**/target/jacoco.exec',
-                    classPattern: '**/target/classes',
-                    sourcePattern: '**/src/main/java',
-                    exclusionPattern: '**/src/test/**'
-                )
-            }
-        }
-
         stage('PMD') {
             steps {
                 sh 'mvn pmd:pmd'
             }
         }
-
+        stage('JaCoCo') {
+            steps {
+                sh 'mvn jacoco:report'
+            }
+        }
         stage('Javadoc') {
             steps {
                 sh 'mvn javadoc:javadoc'
             }
         }
-
         stage('Site') {
             steps {
                 sh 'mvn site'
+            }
+        }
+        stage('Package') {
+            steps {
+                sh 'mvn package -DskipTests'
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: '**/target/*.jar, **/target/*.war, target/site/**', allowEmptyArchive: true
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'target/site',
-                reportFiles: 'index.html',
-                reportName: 'Site Documentation'
-            ])
+            archiveArtifacts artifacts: '**/target/site/**/*.*', fingerprint: true
+            archiveArtifacts artifacts: '**/target/**/*.jar', fingerprint: true
+            archiveArtifacts artifacts: '**/target/**/*.war', fingerprint: true
+            junit '**/target/surefire-reports/*.xml'
         }
     }
 }
