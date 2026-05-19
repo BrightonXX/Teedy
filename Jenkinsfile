@@ -44,7 +44,33 @@ pipeline {
         }
         stage('Package') {
             steps {
-                sh 'mvn package -DskipTests'
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Building image') {
+            steps {
+                script {
+                    dockerImage = docker.build("brightonxx/teedyjenkins:v1.0")
+                }
+            }
+        }
+        stage('Upload image') {
+            steps {
+                script {
+                    docker.withRegistry('', 'dockerhub') {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+        stage('Run containers') {
+            steps {
+                script {
+                    sh 'docker rm -f teedy_manual01 teedy_manual02 teedy_manual03 2>/dev/null || true'
+                    docker.image("brightonxx/teedyjenkins:v1.0").run("-d -p 8084:8080 --name teedy_manual01")
+                    docker.image("brightonxx/teedyjenkins:v1.0").run("-d -p 8083:8080 --name teedy_manual02")
+                    docker.image("brightonxx/teedyjenkins:v1.0").run("-d -p 8082:8080 --name teedy_manual03")
+                }
             }
         }
     }
